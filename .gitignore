@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.wrangler/
+.repo/
+.dev.vars
+.env
+*.local
+wrangler.toml
+
+# Localflare generated files
+.localflare/
+
+# Generated seed data
+data/seed/

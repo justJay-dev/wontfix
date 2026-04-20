@@ -1,0 +1,58 @@
+name = "worker-saas-template"
+main = "src/worker/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+keep_vars = true
+
+# Uncomment and set your custom domain when ready:
+# [[routes]]
+# pattern = "your-app.example.com"
+# custom_domain = true
+
+[assets]
+binding = "ASSETS"
+directory = "./dist/client"
+not_found_handling = "none"
+html_handling = "none"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "app-db"
+database_id = "00000000-0000-4000-8000-000000000000"
+migrations_dir = "drizzle"
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "app-files"
+
+[observability]
+enabled = true
+
+[env.production.vars]
+# BASE_URL = "https://your-app.example.com"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "app-db"
+database_id = "REPLACE_WITH_PRODUCTION_DB_ID"
+migrations_dir = "drizzle"
+
+[[env.production.r2_buckets]]
+binding = "FILES"
+bucket_name = "app-files"
+
+[env.local.vars]
+# BASE_URL is omitted in local dev — the auth route derives it from the request origin.
+# BETTER_AUTH_SECRET is stored in .dev.vars
+
+[[env.local.d1_databases]]
+binding = "DB"
+database_name = "app-db"
+database_id = "00000000-0000-4000-8000-000000000000"
+migrations_dir = "drizzle"
+
+[[env.local.r2_buckets]]
+binding = "FILES"
+bucket_name = "app-files"
