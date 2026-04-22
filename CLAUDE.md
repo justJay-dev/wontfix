@@ -6,7 +6,7 @@
 
 - Anything under `.wrangler/` (local D1 state, R2 state, logs). No `rm -rf .wrangler/state`. No clearing caches.
 - Deleting any file under `drizzle/` — migration `.sql` files, snapshot JSONs, the journal. Flattening migrations counts.
-- `make db-migrate`, `make migrate`, `make migrate-prod`, `wrangler d1 execute` with any write, `wrangler d1 migrations apply`.
+- `make migrate`, `make migrate-remote`, `make seed`, `make seed-remote`, `make bootstrap`, `make bootstrap-remote`, `make create-admin`, `make create-admin-remote`, `wrangler d1 execute` with any write, `wrangler d1 migrations apply`.
 - Any SQL `DELETE`, `UPDATE`, `DROP`, `TRUNCATE`, `ALTER` against the local or remote DB.
 - `wrangler r2 object delete`, `rm` on attachments, any R2 write/delete outside the attachment-upload code path.
 - `rm` / `rm -rf` on anything that isn't a temp file you just created inside `/tmp/`.

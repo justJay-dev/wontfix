@@ -1,6 +1,6 @@
-# Worker SaaS Template
+# wontfix
 
-A full-stack SaaS starter built on **Cloudflare Workers**. One project gives you a marketing site (SSR), a React dashboard (SPA), authentication, multi-tenant RBAC, a database, file storage, and a blog -- all deployed to the edge as a single Worker.
+A multi-tenant issue tracker built on **Cloudflare Workers**. Issues, initiatives (groupings of issues), comments, labels, file attachments, a public roadmap per org, and a marketing site with a blog — all deployed to the edge as a single Worker.
 
 ## Tech Stack
 
@@ -10,10 +10,11 @@ A full-stack SaaS starter built on **Cloudflare Workers**. One project gives you
 | API             | Hono + Chanfana (OpenAPI)                          |
 | Frontend (app)  | React 18, React Router, Tailwind CSS v4, shadcn/ui |
 | Marketing site  | Hono JSX (SSR)                                     |
-| Auth            | Better Auth (email/password, admin roles)          |
+| Auth            | Better Auth (email/password, invitations, admin)   |
 | Database        | Cloudflare D1 (SQLite) via Drizzle ORM             |
-| File storage    | Cloudflare R2                                      |
+| File storage    | Cloudflare R2 (attachments)                        |
 | Email           | Resend (transactional)                             |
+| Editor          | MDX Editor (issue/comment bodies)                  |
 | Build           | Vite + @cloudflare/vite-plugin                     |
 | Package manager | Bun                                                |
 
@@ -25,75 +26,71 @@ src/
     index.ts               # Hono app entry — routes, CORS, SPA fallback
     types.ts               # AppEnv, AppContext, AuthContext, Env bindings
     db/
-      schema.ts            # Drizzle schema (auth, orgs, RBAC, audit)
+      schema.ts            # Drizzle schema (auth, orgs, RBAC, issues, initiatives, ...)
       client.ts            # Drizzle client factory
     lib/
       better-auth.ts       # Auth configuration (Better Auth + Drizzle adapter)
-      base-endpoint.ts     # BaseEndpoint — extends OpenAPIRoute, adds getAuth/getDb/hasPermission
+      base-endpoint.ts     # BaseEndpoint — adds getAuth/getDb/hasPermission
       audit.ts             # logAudit — writes to audit_log on every mutation
       email.ts             # Resend email sending helper
       password.ts          # Password hashing utilities
     middleware/
-      db.ts                # dbMiddleware — injects Drizzle client into context
-      permissions.ts       # resolveAuth — session resolution, org lookup, permission loading
+      db.ts                # Injects Drizzle client into context
+      permissions.ts       # Session resolution, org lookup, permission loading
       rate-limit.ts        # IP-based rate limiting (auth routes)
     routes/
-      auth.ts              # /api/auth/* — Turnstile interception + Better Auth handler
-      orgs/                # /api/orgs — organization CRUD
-      users/               # /api/users — user management within org
-      system/              # /api/system/* — global admin endpoints (user list, create, update)
+      auth.ts              # /api/auth/* — Turnstile + Better Auth handler
+      issues/              # /api/issues — CRUD, close, label add/remove
+      initiatives/         # /api/initiatives — CRUD, archive/unarchive
+      comments/            # /api/comments — per-issue threads
+      labels/              # /api/labels — org-scoped labels
+      attachments/         # /api/attachments — R2 upload/download
+      public/              # /api/public — unauthenticated roadmap endpoints
+      system/              # /api/system/* — global admin endpoints
     schemas/               # Zod request/response schemas per feature
     emails/                # Handlebars email templates
-    dot-com/               # SSR marketing site
-      seo.ts               # Site metadata, sitemap config
-      layouts/base.tsx     # Base HTML layout
-      components/          # Shared marketing components (nav, footer, blog card)
-      pages/               # Landing, blog index, blog post, privacy, terms
-      blog/loader.ts       # Markdown blog post loader
+    dot-com/               # SSR marketing site (landing, blog, privacy, terms)
 
   react-app/               # React SPA (served under /app/*)
-    public/                # Static assets (images, fonts)
     src/
-      main.tsx             # React entry point
-      app.tsx              # Router — login, signup, dashboard, system (admin-only)
-      globals.css          # Tailwind CSS entry
+      app.tsx              # Router — login, signup, issues, initiatives, members, system
       lib/
         auth-client.ts     # Better Auth React client
         api-client.ts      # Typed fetch client (openapi-fetch)
         api-types.d.ts     # Generated OpenAPI types
-        utils.ts           # cn() and shared utilities
       hooks/               # useAuth, useToast, useTheme, useMobile
       components/
-        ui/                # shadcn/ui primitives (button, input, select, table, dialog, date-picker, …)
+        ui/                # shadcn/ui primitives
         layout/            # Shell, header, sidebar
       pages/
-        system/            # Admin-only pages (users)
+        issues/            # List, board (kanban), detail, new
+        initiatives/       # List, detail
+        public/            # Public initiative + issue views (no auth)
+        system/            # Admin-only pages
 
-  shared/                  # Code shared between worker and react-app
-    types/index.ts         # Shared type definitions
-
-content/
-  blog/                    # Markdown blog posts (frontmatter + body)
-
-scripts/
-  generate-client.ts       # Generate typed API client from OpenAPI spec
-  generate-sitemap.ts      # Generate sitemap.xml from pages + blog posts
-  init-admin.ts            # Create initial admin user in D1
-  seed/
-    index.ts               # Seed the permissions catalog into D1
-
+content/blog/              # Markdown blog posts (frontmatter + body)
+scripts/                   # bootstrap, seed, init-admin, generate-client, generate-sitemap
 drizzle/                   # Generated migration files
 ```
+
+## Data Model
+
+- **Issues** — per-org auto-incrementing number, status (`new`, `in_progress`, `closed`, etc.), priority (`meh`, `spicy`, `on_fire`, `prod_is_down`, `an_executive_is_pissed`), optional initiative, author, assignee.
+- **Initiatives** — named grouping of issues with a slug, color, description, and optional `isPublic` flag to expose at `/app/public/:orgSlug/:slug`.
+- **Comments** — threaded under an issue.
+- **Labels** — org-scoped, attached to issues many-to-many.
+- **Attachments** — R2-backed file uploads on issues or comments.
+- **Orgs + memberships + roles + permissions** — multi-tenant RBAC (see below).
 
 ## How It Works
 
 The Worker handles three concerns via a single Hono app:
 
-1. **Marketing site** (`/`, `/blog`, `/privacy`, `/terms`) -- server-rendered with Hono JSX. Includes SEO (structured data, sitemap, robots.txt).
-2. **API** (`/api/*`) -- OpenAPI-documented endpoints via Chanfana, with Swagger UI at `/api/docs`. Auth is handled by Better Auth at `/api/auth/*`.
-3. **Dashboard SPA** (`/app/*`) -- Vite-built React app. The Worker serves `index.html` for all `/app/*` paths, and React Router takes over client-side.
+1. **Marketing site** (`/`, `/blog`, `/privacy`, `/terms`) — server-rendered with Hono JSX. Includes SEO (structured data, sitemap, robots.txt).
+2. **API** (`/api/*`) — OpenAPI-documented endpoints via Chanfana, with Swagger UI at `/api/docs`. Auth is handled by Better Auth at `/api/auth/*`.
+3. **Dashboard SPA** (`/app/*`) — Vite-built React app. The Worker serves `index.html` for all `/app/*` paths, and React Router takes over client-side.
 
-Static assets (JS, CSS, images) are served from a Cloudflare Workers Assets binding.
+Static assets are served from a Cloudflare Workers Assets binding.
 
 ## Getting Started
 
@@ -107,19 +104,13 @@ Static assets (JS, CSS, images) are served from a Cloudflare Workers Assets bind
 
 ```sh
 git clone <your-repo-url>
-cd worker-saas-template
-make install
-```
-
-### 2. Create Cloudflare resources
-
-```sh
+cd wontfix
 make setup
 ```
 
-This creates a D1 database (`wontfix-db`) and an R2 bucket (`wontfix-files`). Copy the `database_id` from the output and update it in [wrangler.toml](wrangler.toml) (both the top-level and `env.production` entries).
+`make setup` installs deps and creates the D1 database and R2 bucket. Copy the printed `database_id` into [wrangler.toml](wrangler.toml) (top-level and `env.production`).
 
-### 3. Configure environment variables
+### 2. Configure environment variables
 
 ```sh
 cp .dev.vars.example .dev.vars
@@ -127,35 +118,21 @@ cp .dev.vars.example .dev.vars
 
 Edit `.dev.vars` and set:
 
-- `BETTER_AUTH_SECRET` -- a random string (minimum 32 characters). Generate one with `openssl rand -hex 32`.
-- `RESEND_API_KEY` -- (optional) your [Resend](https://resend.com) API key for transactional emails.
-- `TURNSTILE_SECRET_KEY` -- your [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) secret key. Required for sign-up.
+- `BETTER_AUTH_SECRET` — random 32+ char string. `openssl rand -hex 32`.
+- `RESEND_API_KEY` — (optional) [Resend](https://resend.com) API key for transactional email.
+- `TURNSTILE_SECRET_KEY` — [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) secret key. Required for sign-up.
 
-### 4. Run database migrations
+### 3. Bootstrap local DB
 
 ```sh
+make generate-migrations
 make migrate
+make bootstrap EMAIL=you@example.com NAME="Your Name" PASSWORD=changeme
 ```
 
-This generates Drizzle migration files and applies them to your local D1 database.
+`make bootstrap` is idempotent: it creates an admin user, an org with a membership, default labels, and seeds the `wontfix` sample issues/initiatives/comments/attachments. Re-running is safe.
 
-### 5. Seed the permissions catalog
-
-```sh
-make seed
-```
-
-This inserts the global permission catalog (resources × actions × scopes) into D1. Re-running is safe — rows are skipped on conflict.
-
-### 6. Create the initial admin user
-
-```sh
-make init-admin EMAIL=you@example.com NAME="Your Name" PASSWORD=changeme
-```
-
-This creates a user with `role = 'admin'` who can sign in immediately and access the system admin UI at `/app/system/users`. Change your password after first sign-in.
-
-### 7. Start the dev server
+### 4. Start the dev server
 
 ```sh
 make dev
@@ -163,13 +140,21 @@ make dev
 
 - Marketing site: `http://localhost:8787`
 - Dashboard: `http://localhost:8787/app`
-- System admin: `http://localhost:8787/app/system/users` (admin role required)
+- System admin: `http://localhost:8787/app/system/users` (admin only)
 - API docs: `http://localhost:8787/api/docs`
-- OpenAPI spec: `http://localhost:8787/api/openapi.json`
+
+## Public Roadmap
+
+Initiatives with `isPublic = true` are reachable without auth at:
+
+- `/app/public/:orgSlug/:initiativeSlug` — initiative overview with its issues
+- `/app/public/:orgSlug/:initiativeSlug/:issueNumber` — individual issue
+
+Backend is served by `/api/public/*`, which bypasses the normal auth middleware.
 
 ## RBAC
 
-The template ships with role-based access control scoped to organizations (multi-tenancy).
+Role-based access control scoped to organizations (multi-tenancy).
 
 ### Data model
 
@@ -202,35 +187,25 @@ Permissions are identified by a three-part string: `resource:action:scope`.
 
 ### Global admins
 
-Users with `role = 'admin'` on the `user` table bypass all permission checks. They can switch the active organization via the `active_org` cookie, allowing them to act on behalf of any tenant.
+Users with `role = 'admin'` on the `user` table bypass all permission checks. They can switch the active organization via the `active_org` cookie.
 
-Global admins have access to the **System admin UI** at `/app/system/users`, and the `AdminRoute` guard in [app.tsx](src/react-app/src/app.tsx) redirects non-admins away from all `/system/*` routes. A **System** section appears in the sidebar only for admin users.
+Global admins have access to the **System admin UI** at `/app/system/users`. The `AdminRoute` guard in [app.tsx](src/react-app/src/app.tsx) redirects non-admins away from `/system/*`.
 
 ### Adding permissions
 
-Add new entries to the `PERMISSIONS` array in [scripts/seed/index.ts](scripts/seed/index.ts), then re-run `make seed`.
+Add entries to the `PERMISSIONS` array in [scripts/seed/index.ts](scripts/seed/index.ts), then re-run `make seed`.
 
 ## System Admin UI
 
-The `/app/system/users` page provides a platform-wide user management interface accessible only to global admins. Features:
+`/app/system/users` — platform-wide user management for global admins:
 
-- **DataTable** — lists all users with avatar, name/email, role badge, status (Active / Unverified / Banned), and join date
-- **Search** — client-side filter by name or email
-- **Create user** — name, email, password, and role; inserts directly into D1 with a hashed credential
-- **Edit user** — update name and role
-- **Ban / Unban** — toggle access with an optional ban reason
+- List all users with role badge, status (Active / Unverified / Banned), join date
+- Client-side search
+- Create user (inserts directly into D1 with a hashed credential)
+- Edit name/role
+- Ban / Unban with optional reason
 
-The backend routes live at `/api/system/*` and are gated by `auth.isGlobalAdmin`. Non-admins receive a `403`.
-
-## Organization Onboarding
-
-> **TODO:** This template does not include an organization creation flow triggered at sign-up. When a new user registers, they will have no org membership and will receive a `403` on any protected API route.
->
-> You should implement one of the following patterns depending on your business model:
->
-> - **Self-serve:** Auto-create an org + membership in a Better Auth `onSignUp` hook, or as a post-signup step in the dashboard.
-> - **Invite-only:** Have an admin create the org and send an invite link that creates the membership on acceptance.
-> - **Admin-provisioned:** Expose an admin-only endpoint to create orgs and assign users manually.
+Backend routes at `/api/system/*` are gated by `auth.isGlobalAdmin`. Non-admins get `403`.
 
 ## Forms
 
@@ -327,7 +302,7 @@ function MyForm() {
 />
 ```
 
-- API-level errors (e.g. "Invalid credentials") are set with `form.setError("root", { message: "..." })` and rendered manually since they are not field-level errors:
+- API-level errors (e.g. "Invalid credentials") are set with `form.setError("root", { message: "..." })` and rendered manually:
 
 ```tsx
 {
@@ -341,9 +316,7 @@ function MyForm() {
 
 ## Mutations & Toasts
 
-All mutations use `useMutation` from `@tanstack/react-query` and surface feedback via the `useToast` hook from `@/hooks/use-toast`. Never use raw `fetch().then()` for mutations — always wrap them in `useMutation` so you get loading state, error handling, and cache invalidation for free.
-
-### Pattern
+All mutations use `useMutation` from `@tanstack/react-query` and surface feedback via the `useToast` hook from `@/hooks/use-toast`. Never use raw `fetch().then()` for mutations — always wrap in `useMutation` so you get loading state, error handling, and cache invalidation.
 
 ```tsx
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -402,106 +375,81 @@ function MyComponent() {
 
 ## UI Components
 
-shadcn/ui components are in `src/react-app/src/components/ui/`. Add new ones with:
-
-```sh
-make ui-add COMPONENT=<name>
-```
-
-The following components ship with the template:
-
-| Component       | Notes                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------ |
-| `button`        | Forwards refs via `React.forwardRef`                                                             |
-| `input`         | Uses `bg-input` background                                                                       |
-| `select`        | Uses `bg-input` background on the trigger                                                        |
-| `date-picker`   | Composed from `calendar` + `popover`; uses `bg-input` on the trigger                             |
-| `calendar`      | react-day-picker wrapper                                                                         |
-| `popover`       | Radix UI popover                                                                                 |
-| `table`         | thead / tbody / tr / td primitives                                                               |
-| `dialog`        | Modal dialog                                                                                     |
-| `alert-dialog`  | Confirmation dialog                                                                              |
-| `dropdown-menu` | Contextual action menu                                                                           |
-| `badge`         | Inline status pill                                                                               |
-| `avatar`        | Avatar with initials fallback                                                                    |
-| `card`          | Content card with header/content slots                                                           |
-| `form`          | `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage` — see [Forms](#forms) |
-| `label`         | Form label                                                                                       |
-| `separator`     | Visual divider                                                                                   |
-| `sheet`         | Mobile drawer                                                                                    |
-| `sidebar`       | App sidebar (collapsible)                                                                        |
-| `skeleton`      | Loading placeholder                                                                              |
-| `toast`         | Radix-based toast primitives                                                                     |
-| `toaster`       | Renders active toasts — mounted once in `app.tsx`                                                |
-| `tooltip`       | Hover tooltip                                                                                    |
+shadcn/ui components are in `src/react-app/src/components/ui/`. When adding new ones, **always pick the Radix-backed shadcn variant**, never an alternative primitive.
 
 ## Adding API Routes
 
-1. Add table(s) to [src/worker/db/schema.ts](src/worker/db/schema.ts) with an `orgId` FK.
-2. Run `make db-generate` to generate the migration, then `make db-migrate` to apply it.
+1. Add table(s) to [src/worker/db/schema.ts](src/worker/db/schema.ts) with an `organizationId` FK.
+2. `make generate-migrations` then `make migrate` to apply locally.
 3. Add Zod schemas to `src/worker/schemas/<feature>.ts`.
-4. Create a sub-router at `src/worker/routes/<feature>/index.ts` — export the `fromHono()` return value, not the raw Hono app.
-5. Create endpoint classes in `src/worker/routes/<feature>/<operation>.ts` — extend `BaseEndpoint`, declare `schema`, call `hasPermission`, scope queries to `auth.orgId`, and call `logAudit` after mutations.
+4. Create a sub-router at `src/worker/routes/<feature>/index.ts` — export the `fromHono()` return value.
+5. Create endpoint classes in `src/worker/routes/<feature>/<operation>.ts` — extend `BaseEndpoint`, declare `schema`, call `hasPermission`, scope queries to `auth.orgId`, and `logAudit` after mutations.
 6. Add new permissions to [scripts/seed/index.ts](scripts/seed/index.ts) and re-run `make seed`.
 7. Mount the sub-router in [src/worker/index.ts](src/worker/index.ts) via `openapi.route('/api/<feature>', featureRoutes)`.
 8. Run `make generate-client` to regenerate the typed client at `src/react-app/src/lib/api-types.d.ts`.
 
-## Common Tasks
+## Make Targets
 
-| Command                                          | Description                                          |
-| ------------------------------------------------ | ---------------------------------------------------- |
-| `make dev`                                       | Start local dev server                               |
-| `make build`                                     | Production build (Vite + sitemap)                    |
-| `make preview`                                   | Build and preview locally with Wrangler              |
-| `make db-generate`                               | Generate Drizzle migration files from schema changes |
-| `make db-migrate`                                | Apply pending migrations to local D1                 |
-| `make migrate`                                   | Generate and apply migrations locally (shorthand)    |
-| `make migrate-prod`                              | Apply migrations to production D1                    |
-| `make db-studio`                                 | Open Drizzle Studio (local DB browser)               |
-| `make seed`                                      | Seed permissions catalog to local D1                 |
-| `make seed-prod`                                 | Seed permissions catalog to production D1            |
-| `make init-admin EMAIL=… NAME=… PASSWORD=…`      | Create initial admin user in local D1                |
-| `make init-admin-prod EMAIL=… NAME=… PASSWORD=…` | Create initial admin user in production D1           |
-| `make generate-client`                           | Regenerate typed API client from OpenAPI spec        |
-| `make ui-add COMPONENT=button`                   | Add a shadcn/ui component                            |
-| `make blog-new SLUG=my-post`                     | Scaffold a new blog post                             |
-| `make deploy`                                    | Build and deploy to production                       |
-| `make logs`                                      | Tail production logs                                 |
-| `make typecheck`                                 | Run TypeScript type checking                         |
-| `make help`                                      | Show all available commands                          |
+| Target                                             | What it does                                     |
+| -------------------------------------------------- | ------------------------------------------------ |
+| `make setup`                                       | Install deps + create CF D1 database + R2 bucket |
+| `make install`                                     | Install dependencies                             |
+| `make dev`                                         | Start local dev server                           |
+| `make build`                                       | Production build (Vite + sitemap)                |
+| `make preview`                                     | Build + preview locally with Wrangler            |
+| `make generate-migrations`                         | Generate Drizzle migration from schema changes   |
+| `make migrate`                                     | Apply pending migrations to local D1             |
+| `make migrate-remote`                              | Apply pending migrations to production D1        |
+| `make open-studio`                                 | Open Drizzle Studio                              |
+| `make seed`                                        | Seed sample `wontfix` data to local D1           |
+| `make seed-remote`                                 | Seed sample data to production D1                |
+| `make create-admin EMAIL=… NAME=… PASSWORD=…`      | Create admin user in local D1                    |
+| `make create-admin-remote EMAIL=… NAME=… PASSWORD=…` | Create admin user in production D1             |
+| `make bootstrap EMAIL=… NAME=… PASSWORD=…`         | One-shot local setup (admin + org + seed data)   |
+| `make bootstrap-remote EMAIL=… NAME=… PASSWORD=…`  | Bootstrap production D1 (use with care)          |
+| `make generate-client`                             | Regenerate typed API client from OpenAPI spec    |
+| `make generate-sitemap`                            | Regenerate sitemap.xml                           |
+| `make typecheck`                                   | TypeScript type checking                         |
+| `make format`                                      | Format code with Prettier                        |
+| `make create-post SLUG=my-post`                    | Scaffold a new blog post                         |
+| `make ship`                                        | Build and deploy to production                   |
+| `make tail-logs`                                   | Tail production logs                             |
 
 ## Adding Blog Posts
 
 ```sh
-make blog-new SLUG=my-post-title
+make create-post SLUG=my-post-title
 ```
 
-Edit the generated file at `content/blog/my-post-title.md`. Posts use YAML frontmatter (`title`, `slug`, `date`, `excerpt`, `tags`, `author`) and are rendered as HTML at `/blog/<slug>`.
+Edit `content/blog/my-post-title.md`. Posts use YAML frontmatter (`title`, `slug`, `date`, `excerpt`, `tags`, `author`) and are rendered at `/blog/<slug>`.
 
 ## Deployment
 
 1. Update `SITE_URL` in [src/worker/dot-com/seo.ts](src/worker/dot-com/seo.ts) with your production domain.
 2. Set `BASE_URL` in the `[env.production.vars]` section of [wrangler.toml](wrangler.toml).
 3. Set production secrets:
+
     ```sh
-    bunx wrangler secret put BETTER_AUTH_SECRET --env production
-    bunx wrangler secret put RESEND_API_KEY --env production
-    bunx wrangler secret put TURNSTILE_SECRET_KEY --env production
+    bunx wrangler secret put BETTER_AUTH_SECRET --remote
+    bunx wrangler secret put RESEND_API_KEY --remote
+    bunx wrangler secret put TURNSTILE_SECRET_KEY --remote
     ```
-4. Apply migrations, seed, and create the initial admin:
+
+4. Apply migrations, seed permissions, and create the initial admin:
+
     ```sh
-    make migrate-prod
-    make seed-prod
-    make init-admin-prod EMAIL=you@example.com NAME="Your Name" PASSWORD=changeme
+    make migrate-remote
+    make seed-remote
+    make create-admin-remote EMAIL=you@example.com NAME="Your Name" PASSWORD=changeme
     ```
-5. Deploy:
+
+5. Ship:
+
     ```sh
-    make deploy
+    make ship
     ```
 
 ## Path Aliases
-
-Three path aliases are configured in both [tsconfig.json](tsconfig.json) and [vite.config.ts](vite.config.ts):
 
 | Alias       | Path                  |
 | ----------- | --------------------- |

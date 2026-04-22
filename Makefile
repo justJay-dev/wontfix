@@ -1,105 +1,75 @@
-.PHONY: help setup install dev build preview db-generate db-migrate migrate migrate-prod db-studio seed seed-prod init-admin init-admin-prod generate generate-client ui-add test lint typecheck deploy clean logs blog-new sitemap
+.PHONY: help setup install dev build preview generate-migrations migrate migrate-remote open-studio seed seed-remote create-admin create-admin-remote bootstrap bootstrap-remote generate-client generate-sitemap typecheck format create-post ship tail-logs
 
-# --- Help ---
-help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+help:
+	@grep -E '^[a-zA-Z_-]+:' $(MAKEFILE_LIST) | awk -F: '{print $$1}' | sort
 
-# --- Setup ---
-setup: ## First-time project setup (install deps, create CF resources)
+setup:
 	bun install
 	bunx wrangler d1 create wontfix-db
 	bunx wrangler r2 bucket create wontfix-files
 	@echo "Add database_id to wrangler.toml"
 
-install: ## Install dependencies
+install:
 	bun install
 
-# --- Development ---
-dev: ## Start local dev server (Vite + Cloudflare Workers runtime)
+dev:
 	bun run dev
 
-build: ## Production build
+build:
 	bun run build
 	bun run scripts/generate-sitemap.ts dist/client/sitemap.xml
 
-preview: build ## Preview production build locally
+preview: build
 	bunx wrangler dev
 
-# --- Database ---
-db-generate: ## Generate Drizzle migration files from schema changes
+generate-migrations:
 	bunx drizzle-kit generate
 
-db-migrate: ## Apply pending migrations to local D1
-	bunx wrangler d1 migrations apply wontfix-db 
+migrate:
+	bunx wrangler d1 migrations apply wontfix-db
 
-migrate: db-generate db-migrate ## Generate and apply migrations to local DB (shorthand)
-
-migrate-prod: ## Apply migrations to production D1
+migrate-remote:
 	bunx wrangler d1 migrations apply wontfix-db --remote
 
-db-studio: ## Open Drizzle Studio (local DB browser)
+open-studio:
 	bunx drizzle-kit studio
 
-seed: ## Seed sample data to local D1 (default: --wontfix)
+seed:
 	bun run scripts/seed/index.ts --wontfix --apply-local
 
-seed-prod: ## Seed sample data to production D1 (default: --wontfix)
+seed-remote:
 	bun run scripts/seed/index.ts --wontfix --apply-prod
 
-init-admin: ## Create admin user in local D1 (defaults: admin@app.local / password123, override with EMAIL= NAME= PASSWORD=)
+create-admin:
 	bun run scripts/init-admin.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) --apply-local
 
-init-admin-prod: ## Create admin user in production D1 (override defaults with EMAIL= NAME= PASSWORD=)
+create-admin-remote:
 	bun run scripts/init-admin.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) --apply-prod
 
-bootstrap: ## One-shot local setup: admin + org + membership + default labels + sample data (idempotent)
+bootstrap:
 	bun run scripts/bootstrap.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) $(if $(ORG_NAME),--org-name=$(ORG_NAME)) $(if $(ORG_SLUG),--org-slug=$(ORG_SLUG)) --apply-local
 
-bootstrap-prod: ## bootstrap against production D1 (use with care)
+bootstrap-remote:
 	bun run scripts/bootstrap.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) $(if $(ORG_NAME),--org-name=$(ORG_NAME)) $(if $(ORG_SLUG),--org-slug=$(ORG_SLUG)) --apply-prod
 
-# --- Code Generation ---
-generate: generate-client ## Run all code generation
-
-generate-client: ## Generate typed API client from OpenAPI spec
+generate-client:
 	bun run scripts/generate-client.ts
 
-# --- shadcn/ui ---
-ui-add: ## Add a shadcn component (usage: make ui-add COMPONENT=button)
-	bunx shadcn@latest add $(COMPONENT)
+generate-sitemap:
+	bun run scripts/generate-sitemap.ts dist/client/sitemap.xml
 
-# --- Testing & Quality ---
-test: ## Run tests
-	bun test
-
-lint: ## Lint & format check
-	bun run lint
-
-typecheck: ## TypeScript type checking
+typecheck:
 	bun run typecheck
 
-# --- Blog ---
-blog-new: ## Create a new blog post (usage: make blog-new SLUG=my-post-title)
+format:
+	bunx prettier --write .
+
+create-post:
 	@echo '---\ntitle: ""\nslug: "$(SLUG)"\ndate: "'$$(date +%Y-%m-%d)'"\nexcerpt: ""\ntags: []\nauthor: ""\n---\n' > content/blog/$(SLUG).md
 	@echo "Created content/blog/$(SLUG).md"
 
-# --- SEO ---
-sitemap: ## Generate sitemap.xml from page registry and blog posts
-	bun run scripts/generate-sitemap.ts dist/client/sitemap.xml
+ship: build
+	bunx wrangler deploy
 
-# --- Deployment ---
-deploy: build ## Build and deploy to production
-	bunx wrangler deploy --env production
-
-ship: deploy ## Alias for deploy
-
-# --- Utilities ---
-clean: ## Remove build artifacts and node_modules
-	rm -rf dist node_modules .wrangler
-
-logs: ## Tail production logs
-	bunx wrangler tail --env production
-
-format: ## Format code with prettier
-	bunx prettier --write .
+tail-logs:
+	bunx wrangler tail

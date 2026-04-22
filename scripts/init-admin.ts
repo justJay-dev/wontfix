@@ -10,8 +10,8 @@
  *   bun run scripts/init-admin.ts --email=you@example.com --name="Your Name" --password=changeme --apply-local
  *
  * Or via Makefile:
- *   make init-admin
- *   make init-admin EMAIL=you@example.com NAME="Your Name" PASSWORD=changeme
+ *   make create-admin
+ *   make create-admin EMAIL=you@example.com NAME="Your Name" PASSWORD=changeme
  */
 import { writeFileSync, unlinkSync } from "node:fs";
 import { execSync } from "node:child_process";

@@ -3,8 +3,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { MoreHorizontal, PlusCircle, Search, ShieldAlert, ShieldCheck, UserCog } from "lucide-react";
+import {
+  KeyRound,
+  Mail,
+  MoreHorizontal,
+  PlusCircle,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  UserCog,
+} from "lucide-react";
 import { format } from "date-fns";
+import { authClient } from "@/lib/auth-client";
 import type { operations } from "@/lib/api-types";
 
 type SystemUser =
@@ -83,9 +94,14 @@ const banUserSchema = z.object({
   ban_reason: z.string().max(500).optional(),
 });
 
+const setPasswordSchema = z.object({
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+
 type CreateUserFormValues = z.infer<typeof createUserSchema>;
 type EditUserFormValues = z.infer<typeof editUserSchema>;
 type BanUserFormValues = z.infer<typeof banUserSchema>;
+type SetPasswordFormValues = z.infer<typeof setPasswordSchema>;
 
 // --- Helpers ---
 
@@ -487,6 +503,240 @@ function UnbanDialog({ user, onOpenChange }: UnbanDialogProps) {
   );
 }
 
+// --- Set Password Dialog ---
+
+interface SetPasswordDialogProps {
+  user: SystemUser | null;
+  onOpenChange: (open: boolean) => void;
+}
+
+function SetPasswordDialog({ user, onOpenChange }: SetPasswordDialogProps) {
+  const { toast } = useToast();
+  const form = useForm<SetPasswordFormValues>({
+    resolver: zodResolver(setPasswordSchema),
+    defaultValues: { password: "" },
+  });
+  const mutation = useMutation({
+    mutationFn: async (values: SetPasswordFormValues) => {
+      if (!user) throw new Error("No user selected");
+      const result = await authClient.admin.setUserPassword({
+        userId: user.id,
+        newPassword: values.password,
+      });
+      if (result.error) {
+        throw new Error(result.error.message ?? "Failed to set password");
+      }
+      return result;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password updated",
+        description: "The user can sign in with the new password immediately.",
+      });
+      form.reset();
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to set password",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  function onSubmit(values: SetPasswordFormValues) {
+    mutation.mutate(values);
+  }
+
+  return (
+    <Dialog open={!!user} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Set password</DialogTitle>
+          <DialogDescription>
+            Assign a new password for {user?.name}. They can sign in with it
+            immediately. Share it over a secure channel — they can change it
+            from the sign-in flow afterwards.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-4"
+          >
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? "Saving…" : "Save password"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Reset Password Dialog (email link) ---
+
+interface ResetPasswordDialogProps {
+  user: SystemUser | null;
+  onOpenChange: (open: boolean) => void;
+}
+
+function ResetPasswordDialog({ user, onOpenChange }: ResetPasswordDialogProps) {
+  const { toast } = useToast();
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("No user selected");
+      const result = await authClient.forgetPassword({
+        email: user.email,
+        redirectTo: `${window.location.origin}/app/reset-password`,
+      });
+      if (result.error) {
+        throw new Error(
+          result.error.message ?? "Failed to send reset email",
+        );
+      }
+      return result;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Reset email sent",
+        description: `A password-reset link is on its way to ${user?.email}.`,
+      });
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to send reset email",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <AlertDialog open={!!user} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Send reset email to {user?.name}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {user?.email} will receive a link to choose a new password. The
+            link expires after use or after the token's TTL, whichever comes
+            first.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(event) => {
+              event.preventDefault();
+              mutation.mutate();
+            }}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? "Sending…" : "Send email"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+// --- Delete User Dialog ---
+
+interface DeleteUserDialogProps {
+  user: SystemUser | null;
+  onOpenChange: (open: boolean) => void;
+}
+
+function DeleteUserDialog({ user, onOpenChange }: DeleteUserDialogProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("No user selected");
+      const result = await authClient.admin.removeUser({ userId: user.id });
+      if (result.error) {
+        throw new Error(result.error.message ?? "Failed to delete user");
+      }
+      return result;
+    },
+    onSuccess: () => {
+      toast({
+        title: "User deleted",
+        description: `${user?.name} has been removed from the platform.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/system/users"] });
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <AlertDialog open={!!user} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {user?.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently removes the user, their sessions, and credential
+            accounts. Their authored issues and comments stay — those fields
+            reference the user id, so history won't disappear, but no one can
+            sign in as them again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={(event) => {
+              event.preventDefault();
+              mutation.mutate();
+            }}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? "Deleting…" : "Delete user"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 // --- User Row Actions ---
 
 interface UserRowActionsProps {
@@ -494,9 +744,20 @@ interface UserRowActionsProps {
   onEdit: (user: SystemUser) => void;
   onBan: (user: SystemUser) => void;
   onUnban: (user: SystemUser) => void;
+  onSetPassword: (user: SystemUser) => void;
+  onResetPassword: (user: SystemUser) => void;
+  onDelete: (user: SystemUser) => void;
 }
 
-function UserRowActions({ user, onEdit, onBan, onUnban }: UserRowActionsProps) {
+function UserRowActions({
+  user,
+  onEdit,
+  onBan,
+  onUnban,
+  onSetPassword,
+  onResetPassword,
+  onDelete,
+}: UserRowActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -512,6 +773,15 @@ function UserRowActions({ user, onEdit, onBan, onUnban }: UserRowActionsProps) {
           <UserCog className="mr-2 h-4 w-4" />
           Edit
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSetPassword(user)}>
+          <KeyRound className="mr-2 h-4 w-4" />
+          Set password
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onResetPassword(user)}>
+          <Mail className="mr-2 h-4 w-4" />
+          Send reset email
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         {user.banned ? (
           <DropdownMenuItem onClick={() => onUnban(user)}>
             <ShieldCheck className="mr-2 h-4 w-4" />
@@ -526,6 +796,13 @@ function UserRowActions({ user, onEdit, onBan, onUnban }: UserRowActionsProps) {
             Ban
           </DropdownMenuItem>
         )}
+        <DropdownMenuItem
+          onClick={() => onDelete(user)}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -539,6 +816,13 @@ export function SystemUsers() {
   const [editUser, setEditUser] = useState<SystemUser | null>(null);
   const [banUser, setBanUser] = useState<SystemUser | null>(null);
   const [unbanUser, setUnbanUser] = useState<SystemUser | null>(null);
+  const [setPasswordUser, setSetPasswordUser] = useState<SystemUser | null>(
+    null,
+  );
+  const [resetPasswordUser, setResetPasswordUser] = useState<SystemUser | null>(
+    null,
+  );
+  const [deleteUser, setDeleteUser] = useState<SystemUser | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/system/users"],
@@ -662,6 +946,9 @@ export function SystemUsers() {
                           onEdit={setEditUser}
                           onBan={setBanUser}
                           onUnban={setUnbanUser}
+                          onSetPassword={setSetPasswordUser}
+                          onResetPassword={setResetPasswordUser}
+                          onDelete={setDeleteUser}
                         />
                       </TableCell>
                     </TableRow>
@@ -677,6 +964,18 @@ export function SystemUsers() {
       <EditUserDialog user={editUser} onOpenChange={(open) => !open && setEditUser(null)} />
       <BanUserDialog user={banUser} onOpenChange={(open) => !open && setBanUser(null)} />
       <UnbanDialog user={unbanUser} onOpenChange={(open) => !open && setUnbanUser(null)} />
+      <SetPasswordDialog
+        user={setPasswordUser}
+        onOpenChange={(open) => !open && setSetPasswordUser(null)}
+      />
+      <ResetPasswordDialog
+        user={resetPasswordUser}
+        onOpenChange={(open) => !open && setResetPasswordUser(null)}
+      />
+      <DeleteUserDialog
+        user={deleteUser}
+        onOpenChange={(open) => !open && setDeleteUser(null)}
+      />
     </Fragment>
   );
 }
