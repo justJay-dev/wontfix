@@ -5,7 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { MoreHorizontal, PlusCircle, Search, ShieldAlert, ShieldCheck, UserCog } from "lucide-react";
 import { format } from "date-fns";
-import type { SystemUser } from "@/lib/api-types";
+import type { operations } from "@/lib/api-types";
+
+type SystemUser =
+    operations["listSystemUsers"]["responses"]["200"]["content"]["application/json"]["data"][number];
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,9 +98,14 @@ function getUserInitials(name: string): string {
     .slice(0, 2);
 }
 
-function formatDate(timestamp: number | null): string {
-  if (!timestamp) return "—";
-  return format(new Date(timestamp * 1000), "MMM d, yyyy");
+function formatDate(timestamp: number | string | null | undefined): string {
+  if (timestamp === null || timestamp === undefined) return "—";
+  const date =
+    typeof timestamp === "number"
+      ? new Date(timestamp * 1000)
+      : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "—";
+  return format(date, "MMM d, yyyy");
 }
 
 // --- Create User Dialog ---

@@ -18,6 +18,8 @@ export interface AppEnv {
         session: Record<string, unknown>;
         user: Record<string, unknown>;
         isGlobalAdmin: boolean;
+        organizationId: string;
+        memberRole: string;
     };
 }
 

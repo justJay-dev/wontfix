@@ -9,6 +9,18 @@ import { renderPasswordResetEmail } from "@worker/emails/password-reset";
 import { renderEmailVerificationEmail } from "@worker/emails/email-verification";
 import { renderOrgInvitationEmail } from "@worker/emails/org-invitation";
 import { ac, admin as orgAdmin, owner } from "@worker/lib/access-control";
+import { labels } from "@worker/db/schema";
+import { nanoid } from "nanoid";
+
+const DEFAULT_LABELS: Array<{ name: string; color: string }> = [
+    { name: "bug", color: "#ef4444" },
+    { name: "feature", color: "#4288c9" },
+    { name: "question", color: "#a855f7" },
+    { name: "skill-issue", color: "#f59e0b" },
+    { name: "works-on-my-machine", color: "#14b8a6" },
+    { name: "spicy-take", color: "#ec4899" },
+    { name: "nice-to-have", color: "#10b981" },
+];
 
 interface CreateAuthOptions {
     db: Database;
@@ -72,8 +84,28 @@ export function createAuth({
             organization({
                 ac,
                 roles: { admin: orgAdmin, owner },
-                allowUserToCreateOrganization: false,
+                // Only global admins can create orgs. Org ownership then
+                // manages itself via the org plugin's own roles.
+                allowUserToCreateOrganization: async (user) => {
+                    const role = (user as { role?: string }).role;
+                    return role === "admin";
+                },
                 creatorRole: "owner",
+                organizationCreation: {
+                    afterCreate: async ({ organization: org }) => {
+                        await db
+                            .insert(labels)
+                            .values(
+                                DEFAULT_LABELS.map((label) => ({
+                                    id: nanoid(),
+                                    organizationId: org.id,
+                                    name: label.name,
+                                    color: label.color,
+                                })),
+                            )
+                            .onConflictDoNothing();
+                    },
+                },
                 sendInvitationEmail: async ({
                     organization: org,
                     invitation,

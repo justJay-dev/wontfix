@@ -270,7 +270,7 @@ function ChangeRoleDialog({
         setIsPending(true);
         const result = await authClient.organization.updateMemberRole({
             memberId: member.id,
-            role,
+            role: role as "owner" | "admin" | "member",
             organizationId,
         });
         setIsPending(false);

@@ -1,8 +1,15 @@
+import "@worker/lib/zod-openapi-setup";
 import { fromHono } from "chanfana";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { authRoutes } from "@worker/routes/auth";
 import { systemRoutes } from "@worker/routes/system/index";
+import { initiativeRoutes } from "@worker/routes/initiatives/index";
+import { issueRoutes } from "@worker/routes/issues/index";
+import { commentRoutes } from "@worker/routes/comments/index";
+import { labelRoutes } from "@worker/routes/labels/index";
+import { attachmentRoutes } from "@worker/routes/attachments/index";
+import { publicRoutes } from "@worker/routes/public/index";
 import { dbMiddleware } from "@worker/middleware/db";
 import { rateLimit } from "@worker/middleware/rate-limit";
 import type { AppEnv } from "@worker/types";
@@ -90,6 +97,12 @@ const openapi = fromHono(app, {
 });
 
 openapi.route("/api/system", systemRoutes);
+openapi.route("/api/initiatives", initiativeRoutes);
+openapi.route("/api/issues", issueRoutes);
+openapi.route("/api/comments", commentRoutes);
+openapi.route("/api/labels", labelRoutes);
+openapi.route("/api/public", publicRoutes);
+app.route("/api/attachments", attachmentRoutes);
 
 // --- Marketing SSR routes ---
 

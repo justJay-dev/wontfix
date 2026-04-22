@@ -45,7 +45,11 @@ type GetResponseData<Path extends PathsWithGet> =
 type MutationRequestBody<
   Path extends MutablePaths,
   Method extends HttpMethod,
-> = paths[Path] extends { [key in Method]: { requestBody: { content: { "application/json": infer Body } } } }
+> = paths[Path] extends {
+  [key in Method]: {
+    requestBody?: { content: { "application/json": infer Body } };
+  };
+}
   ? Body
   : void;
 
@@ -54,11 +58,21 @@ type MutationResponseData<
   Method extends HttpMethod,
 > = paths[Path] extends {
   [key in Method]: {
-    responses: { 200: { content: { "application/json": infer Data } } };
+    responses: {
+      200: { content: { "application/json": infer Data } };
+    };
   };
 }
   ? Data
-  : unknown;
+  : paths[Path] extends {
+        [key in Method]: {
+          responses: {
+            201: { content: { "application/json": infer Data } };
+          };
+        };
+      }
+    ? Data
+    : unknown;
 
 /**
  * Typed wrapper around react-query's useQuery for GET endpoints.

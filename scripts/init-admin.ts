@@ -72,13 +72,13 @@ writeFileSync(tmpFile, sql);
 
 try {
     if (applyLocal) {
-        execSync(`bunx wrangler d1 execute app-db --local --file=${tmpFile}`, {
+        execSync(`bunx wrangler d1 execute wontfix-db --local --file=${tmpFile}`, {
             stdio: "inherit",
         });
         console.log(`\nAdmin user created (local): ${email}`);
     } else if (applyProd) {
         execSync(
-            `bunx wrangler d1 execute app-db --env production --remote --file=${tmpFile}`,
+            `bunx wrangler d1 execute wontfix-db --env production --remote --file=${tmpFile}`,
             { stdio: "inherit" },
         );
         console.log(`\nAdmin user created (production): ${email}`);

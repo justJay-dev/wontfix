@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import type { Database } from "@worker/db/client";
 import { auditLog } from "@worker/db/schema";
+import type { AppContext } from "@worker/types";
 
 interface LogAuditOptions {
     db: Database;
@@ -36,5 +37,27 @@ export async function logAudit({
         tableName,
         recordId,
         changes: JSON.stringify(payload),
+    });
+}
+
+// Pulls session + user off the Hono context. Call-sites become one-liners.
+export async function auditFromContext(
+    context: AppContext,
+    action: "create" | "update" | "delete",
+    tableName: string,
+    recordId: string,
+    changes: Record<string, unknown>,
+): Promise<void> {
+    await logAudit({
+        db: context.get("db"),
+        session: context.get("session") as {
+            activeOrganizationId?: string | null;
+            impersonatedBy?: string | null;
+        },
+        user: context.get("user") as { id: string },
+        action,
+        tableName,
+        recordId,
+        changes,
     });
 }

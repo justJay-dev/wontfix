@@ -8,8 +8,8 @@ help: ## Show this help
 # --- Setup ---
 setup: ## First-time project setup (install deps, create CF resources)
 	bun install
-	bunx wrangler d1 create app-db
-	bunx wrangler r2 bucket create app-files
+	bunx wrangler d1 create wontfix-db
+	bunx wrangler r2 bucket create wontfix-files
 	@echo "Add database_id to wrangler.toml"
 
 install: ## Install dependencies
@@ -31,27 +31,33 @@ db-generate: ## Generate Drizzle migration files from schema changes
 	bunx drizzle-kit generate
 
 db-migrate: ## Apply pending migrations to local D1
-	bunx wrangler d1 migrations apply app-db --local
+	bunx wrangler d1 migrations apply wontfix-db 
 
 migrate: db-generate db-migrate ## Generate and apply migrations to local DB (shorthand)
 
 migrate-prod: ## Apply migrations to production D1
-	bunx wrangler d1 migrations apply app-db --env production --remote
+	bunx wrangler d1 migrations apply wontfix-db --remote
 
 db-studio: ## Open Drizzle Studio (local DB browser)
 	bunx drizzle-kit studio
 
-seed: ## Seed permissions catalog to local D1
-	bun run scripts/seed/index.ts --apply-local
+seed: ## Seed sample data to local D1 (default: --wontfix)
+	bun run scripts/seed/index.ts --wontfix --apply-local
 
-seed-prod: ## Seed permissions catalog to production D1
-	bun run scripts/seed/index.ts --apply-prod
+seed-prod: ## Seed sample data to production D1 (default: --wontfix)
+	bun run scripts/seed/index.ts --wontfix --apply-prod
 
 init-admin: ## Create admin user in local D1 (defaults: admin@app.local / password123, override with EMAIL= NAME= PASSWORD=)
 	bun run scripts/init-admin.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) --apply-local
 
 init-admin-prod: ## Create admin user in production D1 (override defaults with EMAIL= NAME= PASSWORD=)
 	bun run scripts/init-admin.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) --apply-prod
+
+bootstrap: ## One-shot local setup: admin + org + membership + default labels + sample data (idempotent)
+	bun run scripts/bootstrap.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) $(if $(ORG_NAME),--org-name=$(ORG_NAME)) $(if $(ORG_SLUG),--org-slug=$(ORG_SLUG)) --apply-local
+
+bootstrap-prod: ## bootstrap against production D1 (use with care)
+	bun run scripts/bootstrap.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) $(if $(ORG_NAME),--org-name=$(ORG_NAME)) $(if $(ORG_SLUG),--org-slug=$(ORG_SLUG)) --apply-prod
 
 # --- Code Generation ---
 generate: generate-client ## Run all code generation

@@ -117,7 +117,7 @@ make install
 make setup
 ```
 
-This creates a D1 database (`app-db`) and an R2 bucket (`app-files`). Copy the `database_id` from the output and update it in [wrangler.toml](wrangler.toml) (both the top-level and `env.production` entries).
+This creates a D1 database (`wontfix-db`) and an R2 bucket (`wontfix-files`). Copy the `database_id` from the output and update it in [wrangler.toml](wrangler.toml) (both the top-level and `env.production` entries).
 
 ### 3. Configure environment variables
 

@@ -1,6 +1,14 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, UsersRound, Settings } from "lucide-react";
+import {
+    Bug,
+    FolderKanban,
+    Tag,
+    Users,
+    UsersRound,
+    Settings,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { copy } from "@/lib/copy";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
 import {
     Sidebar as ShadcnSidebar,
@@ -16,7 +24,9 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainNavItems = [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/issues", label: "Issues", icon: Bug },
+    { to: "/initiatives", label: "Initiatives", icon: FolderKanban },
+    { to: "/labels", label: "Labels", icon: Tag },
 ];
 
 const orgNavItems = [
@@ -34,16 +44,17 @@ export function AppSidebar() {
     const isAdmin = user?.role === "admin";
 
     function isActive(to: string): boolean {
-        return to === "/"
-            ? location.pathname === "/"
-            : location.pathname.startsWith(to);
+        return location.pathname.startsWith(to);
     }
 
     return (
         <ShadcnSidebar variant="inset">
             <SidebarHeader className="px-4 py-4">
                 <span className="text-lg font-bold tracking-tight text-primary">
-                    App
+                    {copy.brand.name}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                    {copy.brand.tagline}
                 </span>
             </SidebarHeader>
             <SidebarContent>

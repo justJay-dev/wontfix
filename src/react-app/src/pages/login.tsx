@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { signIn } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
@@ -46,7 +47,12 @@ export function Login() {
       return;
     }
 
-    navigate("/");
+    const redirect = searchParams.get("redirect");
+    // Redirect is a `/app/...` path; react-router's basename is `/app`, so strip it.
+    const relative = redirect?.startsWith("/app/")
+      ? redirect.slice(4)
+      : redirect;
+    navigate(relative && relative.startsWith("/") ? relative : "/");
   };
 
   return (

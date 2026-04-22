@@ -6,6 +6,10 @@ import path from "path";
 
 export default defineConfig({
   publicDir: "src/react-app/public",
+  server: {
+    port: 5201,
+    strictPort: true,
+  },
   plugins: [cloudflare(), react(), tailwindcss()],
   resolve: {
     alias: {
