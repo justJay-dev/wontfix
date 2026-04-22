@@ -36,6 +36,22 @@ export interface paths {
         patch: operations["updateSystemUser"];
         trace?: never;
     };
+    "/api/system/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSystemSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateSystemSettings"];
+        trace?: never;
+    };
     "/api/initiatives": {
         parameters: {
             query?: never;
@@ -436,6 +452,60 @@ export interface operations {
                             ban_reason: string | null;
                             created_at: number | null;
                             updated_at: number | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getSystemSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current system settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            signups_enabled: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    updateSystemSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    signups_enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated system settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            signups_enabled: boolean;
                         };
                     };
                 };

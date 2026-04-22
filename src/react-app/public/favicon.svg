@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="4" fill="#0f0e0c"/>
+  <text x="4.5" y="22" font-family="ui-monospace,'Cascadia Code',monospace" font-size="16" font-weight="700" fill="#d6d3cd">wf</text>
+  <line x1="17" y1="16.5" x2="27" y2="16.5" stroke="#e09b3d" stroke-width="2" stroke-linecap="round"/>
+</svg>

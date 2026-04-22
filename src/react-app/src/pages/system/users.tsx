@@ -17,6 +17,8 @@ import {
 import { format } from "date-fns";
 import { authClient } from "@/lib/auth-client";
 import type { operations } from "@/lib/api-types";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 type SystemUser =
     operations["listSystemUsers"]["responses"]["200"]["content"]["application/json"]["data"][number];
@@ -811,6 +813,8 @@ function UserRowActions({
 // --- Main Page ---
 
 export function SystemUsers() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<SystemUser | null>(null);
@@ -823,6 +827,33 @@ export function SystemUsers() {
     null,
   );
   const [deleteUser, setDeleteUser] = useState<SystemUser | null>(null);
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["/api/system/settings"],
+    queryFn: async () => {
+      const response = await fetch("/api/system/settings", { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch settings");
+      return response.json() as Promise<{ data: { signups_enabled: boolean } }>;
+    },
+  });
+
+  const toggleSignups = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const response = await fetch("/api/system/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signups_enabled: enabled }),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to update settings");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/system/settings"] });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to update settings", description: error.message, variant: "destructive" });
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/system/users"],
@@ -858,6 +889,25 @@ export function SystemUsers() {
             Create User
           </Button>
         </div>
+
+        <Card>
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="signups-toggle" className="text-sm font-medium">
+                Allow signups
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When disabled, only admins can create new accounts.
+              </p>
+            </div>
+            <Switch
+              id="signups-toggle"
+              checked={settingsData?.data.signups_enabled ?? true}
+              onCheckedChange={(checked) => toggleSignups.mutate(checked)}
+              disabled={toggleSignups.isPending}
+            />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="pb-3">

@@ -1,31 +1,41 @@
 ---
-title: "Hello World"
-slug: "hello-world"
-date: "2026-03-25"
-excerpt: "Welcome to our blog. This is a sample post to get you started."
-tags: ["announcement"]
-author: ""
+title: "Introducing wont fix"
+slug: "introducing-wontfix"
+date: "2026-04-22"
+excerpt: "A free, open-source issue tracker for teams who are tired of paying per seat to manage a backlog."
+tags: ["launch"]
+author: "The wontfix team"
 ---
 
-## Welcome
+## Why we built this
 
-This is a sample blog post. You can create new posts by adding markdown files to the `content/blog/` directory.
+Every issue tracker we've used either costs too much, does too much, or both.
 
-Each post uses YAML frontmatter for metadata:
+You want a kanban board? That's a paid feature. You want to invite your whole team? That's $14/seat/month. You want to publish a roadmap? Better upgrade to the Business plan. You want priorities that make sense? Too bad, here's P0 through P4.
 
-- **title** — The post title
-- **slug** — URL-friendly identifier
-- **date** — Publication date (YYYY-MM-DD)
-- **excerpt** — Short description for previews
-- **tags** — Array of tag strings
-- **author** — Author name
+We got tired of it. So we built wont fix.
 
-## Creating new posts
+## What it is
 
-Use the Makefile command to scaffold a new post:
+wont fix is a free, open-source issue tracker. It does the things you actually need — kanban boards, list views, initiatives, public roadmaps, file attachments, comments, role-based permissions — without charging you per seat, gating features behind tiers, or requiring a sales call to get started.
 
-```sh
-make blog-new SLUG=my-new-post
-```
+It's also honest about how work actually gets prioritized:
 
-This creates a new markdown file with the frontmatter template pre-filled.
+- **lol** — it's in the backlog somewhere
+- **meh** — someone should look at this eventually
+- **spicy** — getting interesting, people are noticing
+- **on_fire** — the kind of bug that wakes you up
+- **prod_is_down** — self-explanatory, all hands
+- **an_executive_is_pissed** — the real P0
+
+And yes, there's a `wont_fix` status. Sometimes the answer is no, and pretending otherwise doesn't help anyone.
+
+## Open source, self-hostable
+
+The entire codebase is open. Run it on your own infrastructure if you want. Fork it. Read every line. We're not going to rug-pull you with a license change or a surprise pricing page.
+
+Or just sign up and let us host it. Either way, it's free.
+
+## What's next
+
+We're just getting started. If you've been paying too much for too little, give it a shot.

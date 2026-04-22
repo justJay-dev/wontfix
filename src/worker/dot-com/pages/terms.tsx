@@ -103,10 +103,10 @@ export function TermsPage({ cssUrl }: TermsPageProps) {
               <p class="mt-2">
                 Questions? Email us at{" "}
                 <a
-                  href="mailto:hello@your-app.example.com"
+                  href="mailto:hello@wontfix.com"
                   class="text-primary hover:underline"
                 >
-                  hello@your-app.example.com
+                  hello@wontfix.com
                 </a>
                 .
               </p>

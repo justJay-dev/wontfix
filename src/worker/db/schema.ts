@@ -149,6 +149,16 @@ export const auditLog = sqliteTable("audit_log", {
         .default(sql`(unixepoch())`),
 });
 
+// --- System settings (key-value) ---
+
+export const systemSettings = sqliteTable("system_setting", {
+    key: text("key").primaryKey(),
+    value: text("value").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+        .notNull()
+        .default(sql`(unixepoch())`),
+});
+
 // --- WONT FIX issue tracker ---
 
 export const ISSUE_STATUSES = [

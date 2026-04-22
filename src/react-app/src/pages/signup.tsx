@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { signUp } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,15 @@ type SignupForm = z.infer<typeof signupSchema>;
 
 export function Signup() {
   const navigate = useNavigate();
+
+  const { data: signupStatus, isLoading: statusLoading } = useQuery({
+    queryKey: ["/api/auth/signup-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/signup-status");
+      return res.json() as Promise<{ signups_enabled: boolean }>;
+    },
+  });
+
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
     defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
@@ -57,6 +67,44 @@ export function Signup() {
 
     navigate("/");
   };
+
+  if (statusLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Loading...
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (signupStatus && !signupStatus.signups_enabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-3xl">Signups closed</CardTitle>
+            <CardDescription>
+              New account registration is currently disabled. Contact an administrator if you need access.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-medium text-primary hover:underline"
+              >
+                Sign in
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">

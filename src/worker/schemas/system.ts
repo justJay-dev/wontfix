@@ -31,3 +31,17 @@ export const updateSystemUserSchema = z.object({
   banned: z.boolean().optional(),
   ban_reason: z.string().max(500).nullable().optional(),
 });
+
+// --- System settings ---
+
+export const systemSettingsResponseSchema = z.object({
+  signups_enabled: z.boolean(),
+});
+
+export const updateSystemSettingsSchema = z.object({
+  signups_enabled: z.boolean().optional(),
+});
+
+export const signupStatusResponseSchema = z.object({
+  signups_enabled: z.boolean(),
+});

@@ -12,8 +12,8 @@ interface BlogIndexProps {
 export function BlogIndexPage({ cssUrl, posts }: BlogIndexProps) {
   return (
     <BaseLayout
-      title={`Blog — ${SITE_NAME}`}
-      description={`Articles and updates from ${SITE_NAME}.`}
+      title={`Dispatches — ${SITE_NAME}`}
+      description={`Updates, opinions, and the occasional postmortem from ${SITE_NAME}.`}
       canonicalUrl={`${SITE_URL}/blog`}
       ogUrl={`${SITE_URL}/blog`}
       cssUrl={cssUrl}
@@ -21,10 +21,10 @@ export function BlogIndexPage({ cssUrl, posts }: BlogIndexProps) {
       <section class="py-20 md:py-28">
         <div class="mx-auto max-w-4xl px-4">
           <h1 class="text-4xl font-bold tracking-tight text-foreground">
-            Blog
+            Dispatches
           </h1>
           <p class="mt-4 text-muted-foreground">
-            Articles and updates from the team.
+            Updates, opinions, and the occasional postmortem.
           </p>
 
           {posts.length === 0 ? (

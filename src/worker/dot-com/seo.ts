@@ -1,8 +1,8 @@
-export const SITE_URL = "https://your-app.example.com";
-export const SITE_NAME = "Your App";
-export const SITE_TAGLINE = "Your tagline here";
+export const SITE_URL = "https://wontfix.com";
+export const SITE_NAME = "wont fix";
+export const SITE_TAGLINE = "The issue tracker that tells it like it is";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
-export const TWITTER_HANDLE = "@yourapp";
+export const TWITTER_HANDLE = "@wontfix";
 
 export interface SitemapPage {
   path: string;

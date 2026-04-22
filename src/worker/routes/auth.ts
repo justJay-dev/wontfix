@@ -1,5 +1,8 @@
 import { Hono } from "hono";
+import { eq } from "drizzle-orm";
 import { createAuth } from "@worker/lib/better-auth";
+import { systemSettings } from "@worker/db/schema";
+import type { Database } from "@worker/db/client";
 import type { AppEnv } from "@worker/types";
 import { logger } from "@worker/lib/logger";
 
@@ -23,8 +26,32 @@ async function verifyTurnstile(
   return outcome.success;
 }
 
+async function isSignupEnabled(db: Database): Promise<boolean> {
+  const row = await db
+    .select()
+    .from(systemSettings)
+    .where(eq(systemSettings.key, "signups_enabled"))
+    .get();
+  return row ? row.value === "true" : true;
+}
+
+authRoutes.get("/signup-status", async (ctx) => {
+  const db = ctx.get("db");
+  const enabled = await isSignupEnabled(db);
+  return ctx.json({ signups_enabled: enabled });
+});
+
 // Intercept sign-up to verify Turnstile token before passing to Better Auth
 authRoutes.post("/sign-up/email", async (ctx, next) => {
+  const db = ctx.get("db");
+  const signupsEnabled = await isSignupEnabled(db);
+  if (!signupsEnabled) {
+    return ctx.json(
+      { error: { message: "Signups are currently disabled" } },
+      200,
+    );
+  }
+
   const body = (await ctx.req.json()) as Record<string, unknown>;
   const turnstileToken = body.turnstileToken as string | undefined;
 

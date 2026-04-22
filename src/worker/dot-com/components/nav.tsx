@@ -9,8 +9,7 @@ export function Nav() {
           href="/"
           class="flex items-center gap-2 text-foreground font-semibold tracking-tight"
         >
-          <span class="text-lg text-primary">&#9670;</span>
-          <span>YOUR APP</span>
+          <span class="font-mono font-bold">wont<span class="line-through decoration-primary">fix</span></span>
         </a>
 
         <div class="hidden items-center gap-6 md:flex">

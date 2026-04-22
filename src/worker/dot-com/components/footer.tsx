@@ -5,8 +5,7 @@ export function Footer() {
     <footer class="border-t border-border bg-card">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 md:flex-row">
         <div class="flex items-center gap-2 text-muted-foreground">
-          <span class="text-lg text-primary">&#9670;</span>
-          <span class="text-sm font-semibold">YOUR APP</span>
+          <span class="text-sm font-mono font-bold">wont<span class="line-through decoration-primary">fix</span></span>
         </div>
 
         <div class="flex items-center gap-6">
