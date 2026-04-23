@@ -26,14 +26,16 @@ interface CreateAuthOptions {
     db: Database;
     secret: string;
     baseURL: string;
-    resendApiKey: string;
+    email: SendEmail;
+    emailFrom: string;
 }
 
 export function createAuth({
     db,
     secret,
     baseURL,
-    resendApiKey,
+    email,
+    emailFrom,
 }: CreateAuthOptions) {
     return betterAuth({
         baseURL,
@@ -58,7 +60,8 @@ export function createAuth({
             },
             sendResetPassword: async ({ user, url }) => {
                 await sendEmail({
-                    apiKey: resendApiKey,
+                    email,
+                    from: emailFrom,
                     to: user.email,
                     subject: "Reset your password",
                     html: renderPasswordResetEmail({ url }),
@@ -69,7 +72,8 @@ export function createAuth({
             sendOnSignUp: true,
             sendVerificationEmail: async ({ user, url }) => {
                 await sendEmail({
-                    apiKey: resendApiKey,
+                    email,
+                    from: emailFrom,
                     to: user.email,
                     subject: "Verify your email",
                     html: renderEmailVerificationEmail({ url }),
@@ -111,7 +115,8 @@ export function createAuth({
                     invitation,
                 }) => {
                     await sendEmail({
-                        apiKey: resendApiKey,
+                        email,
+                        from: emailFrom,
                         to: invitation.email,
                         subject: `You've been invited to join ${org.name}`,
                         html: renderOrgInvitationEmail({

@@ -7,8 +7,5 @@ BETTER_AUTH_SECRET=your-secret-key-here-min-32-chars
 # Only override here if you need a custom local URL.
 # BASE_URL=http://localhost:8787
 
-# Resend API key for transactional emails (optional)
-# RESEND_API_KEY=re_xxxxx
-
 # Cloudflare Turnstile secret key for captcha (optional)
 # TURNSTILE_SECRET_KEY=0x...

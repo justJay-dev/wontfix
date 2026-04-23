@@ -5,8 +5,9 @@ export interface Env {
     ASSETS: Fetcher;
     DB: D1Database;
     FILES: R2Bucket;
+    EMAIL: SendEmail;
+    EMAIL_FROM: string;
     BETTER_AUTH_SECRET: string;
-    RESEND_API_KEY: string;
     TURNSTILE_SECRET_KEY: string;
     BASE_URL?: string;
 }

@@ -23,7 +23,8 @@ export async function tryResolveSession(
         db,
         secret: ctx.env.BETTER_AUTH_SECRET,
         baseURL,
-        resendApiKey: ctx.env.RESEND_API_KEY,
+        email: ctx.env.EMAIL,
+        emailFrom: ctx.env.EMAIL_FROM,
     });
     const sessionData = await authInstance.api.getSession({
         headers: ctx.req.raw.headers,
@@ -48,7 +49,8 @@ export const resolveAuth = createMiddleware<AppEnv>(async (ctx, next) => {
         db,
         secret: ctx.env.BETTER_AUTH_SECRET,
         baseURL,
-        resendApiKey: ctx.env.RESEND_API_KEY,
+        email: ctx.env.EMAIL,
+        emailFrom: ctx.env.EMAIL_FROM,
     });
 
     const sessionData = await authInstance.api.getSession({

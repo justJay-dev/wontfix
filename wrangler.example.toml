@@ -27,32 +27,11 @@ migrations_dir = "drizzle"
 binding = "FILES"
 bucket_name = "wontfix-files"
 
+[[send_email]]
+name = "EMAIL"
+
+[vars]
+EMAIL_FROM = "Your App <noreply@your-domain.com>"
+
 [observability]
 enabled = true
-
-[env.production.vars]
-# BASE_URL = "https://your-app.example.com"
-
-[[env.production.d1_databases]]
-binding = "DB"
-database_name = "wontfix-db"
-database_id = "REPLACE_WITH_PRODUCTION_DB_ID"
-migrations_dir = "drizzle"
-
-[[env.production.r2_buckets]]
-binding = "FILES"
-bucket_name = "wontfix-files"
-
-[env.local.vars]
-# BASE_URL is omitted in local dev — the auth route derives it from the request origin.
-# BETTER_AUTH_SECRET is stored in .dev.vars
-
-[[env.local.d1_databases]]
-binding = "DB"
-database_name = "wontfix-db"
-database_id = "00000000-0000-4000-8000-000000000000"
-migrations_dir = "drizzle"
-
-[[env.local.r2_buckets]]
-binding = "FILES"
-bucket_name = "wontfix-files"
