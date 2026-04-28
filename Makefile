@@ -50,7 +50,7 @@ bootstrap:
 	bun run scripts/bootstrap.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) $(if $(ORG_NAME),--org-name=$(ORG_NAME)) $(if $(ORG_SLUG),--org-slug=$(ORG_SLUG)) --apply-local
 
 bootstrap-remote:
-	bun run scripts/bootstrap.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) $(if $(ORG_NAME),--org-name=$(ORG_NAME)) $(if $(ORG_SLUG),--org-slug=$(ORG_SLUG)) --apply-prod
+	bun run scripts/bootstrap.ts $(if $(EMAIL),--email=$(EMAIL)) $(if $(NAME),--name=$(NAME)) $(if $(PASSWORD),--password=$(PASSWORD)) $(if $(ORG_NAME),--org-name=$(ORG_NAME)) $(if $(ORG_SLUG),--org-slug=$(ORG_SLUG)) --apply-remote
 
 generate-client:
 	bun run scripts/generate-client.ts

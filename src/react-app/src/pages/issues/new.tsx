@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useInitiatives, useCreateIssue } from "@/hooks/use-wontfix";
 import { useOrgMembers } from "@/hooks/use-org-members";
 import {
@@ -28,6 +28,7 @@ import type { UploadedAttachment } from "@/hooks/use-attachment-upload";
 
 export function NewIssue() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { toast } = useToast();
     const { data: initiativesData } = useInitiatives();
     const { members } = useOrgMembers();
@@ -36,7 +37,9 @@ export function NewIssue() {
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
     const [priority, setPriority] = useState<IssuePriority>("meh");
-    const [initiativeId, setInitiativeId] = useState<string>(NO_INITIATIVE);
+    const [initiativeId, setInitiativeId] = useState<string>(
+        searchParams.get("initiative") ?? NO_INITIATIVE,
+    );
     const [assigneeId, setAssigneeId] = useState<string>(UNASSIGNED);
     const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
 

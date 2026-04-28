@@ -9,6 +9,7 @@ import {
     Link as LinkIcon,
     List,
     Pencil,
+    Plus,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useInitiative, useIssues } from "@/hooks/use-wontfix";
@@ -254,6 +255,17 @@ export function InitiativeDetail() {
                     >
                         <LayoutGrid className="mr-1 h-3.5 w-3.5" />
                         Board
+                    </Button>
+                    <Button
+                        size="sm"
+                        onClick={() =>
+                            navigate(
+                                `/issues/new?initiative=${current.id}`,
+                            )
+                        }
+                    >
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        New issue
                     </Button>
                     {current.is_public && activeOrg?.slug && (
                         <Button
