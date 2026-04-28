@@ -86,7 +86,7 @@ export function IssuesList() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Button asChild variant="outline" size="sm">
-                        <Link to="/issues/board">
+                        <Link to="/issues">
                             <LayoutGrid className="mr-1 h-3.5 w-3.5" />
                             Board
                         </Link>

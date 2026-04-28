@@ -17,6 +17,7 @@ export interface HydratedIssueRow {
     body: string;
     status: string;
     priority: string;
+    sort_order: number;
     created_at: number;
     updated_at: number;
     closed_at: number | null;
@@ -192,6 +193,7 @@ export async function hydrateIssues(
             body: issue.body,
             status: issue.status,
             priority: issue.priority,
+            sort_order: issue.sortOrder,
             created_at: toEpoch(issue.createdAt) ?? 0,
             updated_at: toEpoch(issue.updatedAt) ?? 0,
             closed_at: toEpoch(issue.closedAt),

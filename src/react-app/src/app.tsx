@@ -97,11 +97,11 @@ export default function App() {
                                     />
                                     <Route
                                         path="/issues"
-                                        element={<IssuesList />}
+                                        element={<IssuesBoard />}
                                     />
                                     <Route
-                                        path="/issues/board"
-                                        element={<IssuesBoard />}
+                                        path="/issues/list"
+                                        element={<IssuesList />}
                                     />
                                     <Route
                                         path="/issues/new"

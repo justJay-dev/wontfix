@@ -104,6 +104,8 @@ export class UpdateIssueEndpoint extends BaseEndpoint {
         if (body.priority !== undefined) updates.priority = body.priority;
         if (body.assignee_id !== undefined)
             updates.assigneeId = body.assignee_id;
+        if (body.sort_order !== undefined)
+            updates.sortOrder = body.sort_order;
         if (body.status !== undefined) {
             updates.status = body.status;
             const wasTerminal = TERMINAL_STATUSES.has(existing.status);

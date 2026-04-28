@@ -1,6 +1,6 @@
 import { contentJson } from "chanfana";
 import { z } from "zod";
-import { and, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { BaseEndpoint } from "@worker/lib/base-endpoint";
 import {
     issues,
@@ -111,7 +111,7 @@ export class ListIssuesEndpoint extends BaseEndpoint {
                     eq(issueLabels.issueId, issues.id),
                 )
                 .where(and(...conditions, eq(issueLabels.labelId, query.label_id)))
-                .orderBy(desc(issues.createdAt))
+                .orderBy(asc(issues.sortOrder), desc(issues.createdAt))
                 .limit(limit)
                 .offset(offset);
             countRows = await db
@@ -127,7 +127,7 @@ export class ListIssuesEndpoint extends BaseEndpoint {
                 .select({ id: issues.id })
                 .from(issues)
                 .where(and(...conditions))
-                .orderBy(desc(issues.createdAt))
+                .orderBy(asc(issues.sortOrder), desc(issues.createdAt))
                 .limit(limit)
                 .offset(offset);
             countRows = await db

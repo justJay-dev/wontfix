@@ -77,7 +77,7 @@ export function InitiativeDetail() {
     const initiative = data?.data;
     const issues = issuesData?.data ?? [];
 
-    const [view, setView] = useState<"list" | "board">("list");
+    const [view, setView] = useState<"list" | "board">("board");
 
     const [editOpen, setEditOpen] = useState(false);
     const [editName, setEditName] = useState("");

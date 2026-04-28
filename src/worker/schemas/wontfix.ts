@@ -107,6 +107,7 @@ export const IssueSummarySchema = z.object({
     title: z.string(),
     status: StatusEnum,
     priority: PriorityEnum,
+    sort_order: z.number(),
     initiative: IssueInitiativeRef.nullable(),
     assignee: IssueUserRef.nullable(),
     author: IssueUserRef,
@@ -139,11 +140,13 @@ export const UpdateIssueRequest = z.object({
     status: StatusEnum.optional(),
     assignee_id: z.string().nullable().optional(),
     attachment_ids: z.array(z.string()).optional(),
+    sort_order: z.number().optional(),
 });
 
 export const CloseIssueRequest = z.object({
     status: z.enum(["done", "wont_fix"]),
 });
+
 
 // ----- Comments -----
 

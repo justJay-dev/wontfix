@@ -774,6 +774,7 @@ export interface operations {
                             status: "new" | "todo" | "doing" | "done" | "wont_fix";
                             /** @enum {string} */
                             priority: "lol" | "meh" | "spicy" | "on_fire" | "prod_is_down" | "an_executive_is_pissed";
+                            sort_order: number;
                             initiative: {
                                 id: string;
                                 name: string;
@@ -853,6 +854,7 @@ export interface operations {
                             status: "new" | "todo" | "doing" | "done" | "wont_fix";
                             /** @enum {string} */
                             priority: "lol" | "meh" | "spicy" | "on_fire" | "prod_is_down" | "an_executive_is_pissed";
+                            sort_order: number;
                             initiative: {
                                 id: string;
                                 name: string;
@@ -924,6 +926,7 @@ export interface operations {
                             status: "new" | "todo" | "doing" | "done" | "wont_fix";
                             /** @enum {string} */
                             priority: "lol" | "meh" | "spicy" | "on_fire" | "prod_is_down" | "an_executive_is_pissed";
+                            sort_order: number;
                             initiative: {
                                 id: string;
                                 name: string;
@@ -990,6 +993,7 @@ export interface operations {
                     status?: "new" | "todo" | "doing" | "done" | "wont_fix";
                     assignee_id?: string | null;
                     attachment_ids?: string[];
+                    sort_order?: number;
                 };
             };
         };
@@ -1009,6 +1013,7 @@ export interface operations {
                             status: "new" | "todo" | "doing" | "done" | "wont_fix";
                             /** @enum {string} */
                             priority: "lol" | "meh" | "spicy" | "on_fire" | "prod_is_down" | "an_executive_is_pissed";
+                            sort_order: number;
                             initiative: {
                                 id: string;
                                 name: string;
@@ -1087,6 +1092,7 @@ export interface operations {
                             status: "new" | "todo" | "doing" | "done" | "wont_fix";
                             /** @enum {string} */
                             priority: "lol" | "meh" | "spicy" | "on_fire" | "prod_is_down" | "an_executive_is_pissed";
+                            sort_order: number;
                             initiative: {
                                 id: string;
                                 name: string;
@@ -1538,6 +1544,7 @@ export interface operations {
                             status: "new" | "todo" | "doing" | "done" | "wont_fix";
                             /** @enum {string} */
                             priority: "lol" | "meh" | "spicy" | "on_fire" | "prod_is_down" | "an_executive_is_pissed";
+                            sort_order: number;
                             initiative: {
                                 id: string;
                                 name: string;
@@ -1607,6 +1614,7 @@ export interface operations {
                             status: "new" | "todo" | "doing" | "done" | "wont_fix";
                             /** @enum {string} */
                             priority: "lol" | "meh" | "spicy" | "on_fire" | "prod_is_down" | "an_executive_is_pissed";
+                            sort_order: number;
                             initiative: {
                                 id: string;
                                 name: string;

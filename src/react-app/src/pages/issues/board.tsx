@@ -1,17 +1,25 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { List, Plus, Search } from "lucide-react";
 import {
     DndContext,
     DragOverlay,
     PointerSensor,
-    useDraggable,
+    closestCenter,
     useDroppable,
     useSensor,
     useSensors,
     type DragEndEvent,
+    type DragOverEvent,
     type DragStartEvent,
 } from "@dnd-kit/core";
+import {
+    SortableContext,
+    useSortable,
+    verticalListSortingStrategy,
+    arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIssues, useInitiatives, useLabels } from "@/hooks/use-wontfix";
 import { useOrgMembers } from "@/hooks/use-org-members";
@@ -133,25 +141,27 @@ function IssueCardInner({ issue, asLink = true }: IssueCardInnerProps) {
     return <div className={className}>{body}</div>;
 }
 
-interface DraggableCardProps {
-    issue: IssueCard;
-}
+function SortableCard({ issue }: { issue: IssueCard }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: issue.id });
 
-function DraggableCard({ issue }: DraggableCardProps) {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-        id: issue.id,
-    });
-
-    // Keep the card's slot in the column but hide the content so the
-    // floating DragOverlay clone carries the visual. Without this the
-    // slot collapses and columns reflow as you pick up a card.
     return (
         <div
             ref={setNodeRef}
+            style={{
+                transform: CSS.Translate.toString(transform),
+                transition,
+                opacity: isDragging ? 0 : 1,
+            }}
             {...attributes}
             {...listeners}
             className="touch-none"
-            style={{ opacity: isDragging ? 0 : 1 }}
         >
             <IssueCardInner issue={issue} />
         </div>
@@ -220,17 +230,23 @@ function Column({ def, issues, isOver }: ColumnProps) {
                     </span>
                 </div>
             </div>
-            <div className="flex flex-col gap-2 overflow-y-auto pr-1">
-                {issues.length === 0 ? (
-                    <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                        Nothing here.
-                    </p>
-                ) : (
-                    issues.map((issue) => (
-                        <DraggableCard key={issue.id} issue={issue} />
-                    ))
-                )}
-            </div>
+            <SortableContext
+                id={def.id}
+                items={issues.map((i) => i.id)}
+                strategy={verticalListSortingStrategy}
+            >
+                <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+                    {issues.length === 0 ? (
+                        <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                            Nothing here.
+                        </p>
+                    ) : (
+                        issues.map((issue) => (
+                            <SortableCard key={issue.id} issue={issue} />
+                        ))
+                    )}
+                </div>
+            </SortableContext>
             {def.subtitle && (
                 <p className="mt-auto px-1 pt-2 text-[10px] italic text-muted-foreground">
                     {def.subtitle}
@@ -274,13 +290,11 @@ export function IssuesBoard() {
     );
 
     const { data, isLoading } = useIssues(filters);
-    // Board by initiative needs archived initiatives too so orphaned
-    // issues under them still land in a column.
     const { data: initiativesData } = useInitiatives(true);
     const { data: labelsData } = useLabels();
     const { members } = useOrgMembers();
 
-    const issues = data?.data ?? [];
+    const apiIssues = data?.data ?? [];
     const pagination = data?.pagination;
     const initiatives = initiativesData?.data ?? [];
     const labels = labelsData?.data ?? [];
@@ -319,138 +333,246 @@ export function IssuesBoard() {
         return defs;
     }, [groupBy, initiatives]);
 
-    const columns: Record<string, IssueCard[]> = useMemo(() => {
-        const buckets: Record<string, IssueCard[]> = Object.fromEntries(
-            columnDefs.map((def) => [def.id, [] as IssueCard[]]),
-        );
-        for (const issue of issues) {
+    // Local ordering state — maps column ID → ordered issue IDs.
+    // Synced from API data, mutated optimistically during drag.
+    const [orderedColumns, setOrderedColumns] = useState<
+        Record<string, string[]>
+    >({});
+
+    const issueMap = useMemo(() => {
+        const map = new Map<string, IssueCard>();
+        for (const issue of apiIssues) map.set(issue.id, issue);
+        return map;
+    }, [apiIssues]);
+
+    // Rebuild local order from API data when it changes.
+    useEffect(() => {
+        const cols: Record<string, string[]> = {};
+        for (const def of columnDefs) cols[def.id] = [];
+        for (const issue of apiIssues) {
             const key =
                 groupBy === "status"
                     ? issue.status
                     : issue.initiative?.id ?? "__none__";
-            if (buckets[key]) {
-                buckets[key].push(issue);
-            }
+            if (cols[key]) cols[key].push(issue.id);
         }
-        return buckets;
-    }, [columnDefs, issues, groupBy]);
+        setOrderedColumns(cols);
+    }, [apiIssues, columnDefs, groupBy]);
+
+    // Resolve ordered columns to issue objects for rendering.
+    const columns: Record<string, IssueCard[]> = useMemo(() => {
+        const result: Record<string, IssueCard[]> = {};
+        for (const def of columnDefs) {
+            const ids = orderedColumns[def.id] ?? [];
+            result[def.id] = ids
+                .map((id) => issueMap.get(id))
+                .filter((i): i is IssueCard => i !== undefined);
+        }
+        return result;
+    }, [columnDefs, orderedColumns, issueMap]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
-            // Require a little drag before engaging so simple clicks on
-            // the card's Link still navigate to the issue.
             activationConstraint: { distance: 6 },
         }),
     );
 
+    function findContainer(id: string): string | undefined {
+        for (const [containerId, ids] of Object.entries(orderedColumns)) {
+            if (ids.includes(id)) return containerId;
+        }
+        return undefined;
+    }
+
     function handleDragStart(event: DragStartEvent) {
         setActiveId(String(event.active.id));
     }
+
+    function handleDragOver(event: DragOverEvent) {
+        const { active, over } = event;
+        if (!over) return;
+
+        const activeIdStr = String(active.id);
+        const overIdStr = String(over.id);
+
+        const activeContainer = findContainer(activeIdStr);
+        // over could be a sortable card (has containerId) or a column droppable
+        const overContainer =
+            over.data.current?.sortable?.containerId ??
+            (columnDefs.find((d) => d.id === overIdStr) ? overIdStr : undefined);
+
+        if (!activeContainer || !overContainer) return;
+
+        setOverColumnId(overContainer);
+
+        if (activeContainer === overContainer) return;
+
+        // Cross-column: move the card from one column to the other
+        setOrderedColumns((prev) => {
+            const activeItems = prev[activeContainer].filter(
+                (id) => id !== activeIdStr,
+            );
+            const overItems = [...(prev[overContainer] ?? [])];
+
+            // Insert near the card we're hovering over, or at end
+            const overIndex = overItems.indexOf(overIdStr);
+            const insertIndex =
+                overIndex >= 0 ? overIndex : overItems.length;
+            overItems.splice(insertIndex, 0, activeIdStr);
+
+            return {
+                ...prev,
+                [activeContainer]: activeItems,
+                [overContainer]: overItems,
+            };
+        });
+    }
+
+    // Debounced query invalidation ref
+    const invalidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedInvalidate = useCallback(() => {
+        if (invalidateTimer.current) clearTimeout(invalidateTimer.current);
+        invalidateTimer.current = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ["issues"] });
+        }, 500);
+    }, [queryClient]);
 
     async function handleDragEnd(event: DragEndEvent) {
         setOverColumnId(null);
         setActiveId(null);
         const { active, over } = event;
         if (!over) return;
-        const issueId = String(active.id);
-        const targetId = String(over.id);
 
-        const issue = issues.find((row) => row.id === issueId);
+        const activeIdStr = String(active.id);
+        const overIdStr = String(over.id);
+
+        const activeContainer = findContainer(activeIdStr);
+        const overContainer =
+            over.data.current?.sortable?.containerId ??
+            (columnDefs.find((d) => d.id === overIdStr)
+                ? overIdStr
+                : undefined);
+
+        if (!activeContainer || !overContainer) return;
+
+        const issue = issueMap.get(activeIdStr);
         if (!issue) return;
 
-        type ListPayload = { data: IssueCard[]; pagination: unknown };
-        const queryKey = ["issues", filters];
-        const previous = queryClient.getQueryData<ListPayload>(queryKey);
+        // Same-column reorder
+        if (activeContainer === overContainer) {
+            const items = orderedColumns[activeContainer];
+            const oldIndex = items.indexOf(activeIdStr);
+            const newIndex = items.indexOf(overIdStr);
+            if (oldIndex === newIndex) return;
 
-        let patchBody:
-            | { status: IssueStatus }
-            | { initiative_id: string | null };
+            const newItems = arrayMove(items, oldIndex, newIndex);
+            setOrderedColumns((prev) => ({
+                ...prev,
+                [activeContainer]: newItems,
+            }));
+
+            // Only PATCH cards whose sort_order actually changed
+            const patches = newItems
+                .map((id, i) => ({ id, sortOrder: i + 1 }))
+                .filter(({ id, sortOrder }) => {
+                    const card = issueMap.get(id);
+                    return card && card.sort_order !== sortOrder;
+                })
+                .map(({ id, sortOrder }) =>
+                    apiClient.PATCH("/api/issues/{number}", {
+                        params: {
+                            path: {
+                                number: String(issueMap.get(id)!.number),
+                            },
+                        },
+                        body: { sort_order: sortOrder },
+                    }),
+                );
+            await Promise.all(patches);
+            debouncedInvalidate();
+            return;
+        }
+
+        // Cross-column drop — orderedColumns already updated in onDragOver.
+        // Determine what changed: status or initiative.
+        let patchBody: Record<string, unknown> = {};
         let toastCopy: { title: string; description: string } =
             copy.toasts.issueUpdated;
 
         if (groupBy === "status") {
-            if (!(ISSUE_STATUSES as readonly string[]).includes(targetId))
+            if (!(ISSUE_STATUSES as readonly string[]).includes(overContainer))
                 return;
-            const targetStatus = targetId as IssueStatus;
-            if (issue.status === targetStatus) return;
-            patchBody = { status: targetStatus };
+            const targetStatus = overContainer as IssueStatus;
+            patchBody.status = targetStatus;
             if (targetStatus === "wont_fix") {
                 toastCopy = copy.toasts.issueClosedWontFix;
             }
-            if (previous) {
-                queryClient.setQueryData<ListPayload>(queryKey, {
-                    ...previous,
-                    data: previous.data.map((row) =>
-                        row.id === issueId
-                            ? { ...row, status: targetStatus }
-                            : row,
-                    ),
-                });
-            }
         } else {
             const nextInitiativeId =
-                targetId === "__none__" ? null : targetId;
-            const currentId = issue.initiative?.id ?? null;
-            if (currentId === nextInitiativeId) return;
-            patchBody = { initiative_id: nextInitiativeId };
-            const nextInitiative =
-                nextInitiativeId === null
-                    ? null
-                    : initiatives.find((row) => row.id === nextInitiativeId);
-            if (previous) {
-                queryClient.setQueryData<ListPayload>(queryKey, {
-                    ...previous,
-                    data: previous.data.map((row) =>
-                        row.id === issueId
-                            ? {
-                                  ...row,
-                                  initiative: nextInitiative
-                                      ? {
-                                            id: nextInitiative.id,
-                                            name: nextInitiative.name,
-                                            slug: nextInitiative.slug,
-                                            color: nextInitiative.color,
-                                            archived:
-                                                nextInitiative.archived_at !==
-                                                null,
-                                        }
-                                      : null,
-                              }
-                            : row,
-                    ),
-                });
-            }
+                overContainer === "__none__" ? null : overContainer;
+            patchBody.initiative_id = nextInitiativeId;
         }
 
+        // PATCH the moved card with column change + sort_order
+        const targetItems = orderedColumns[overContainer] ?? [];
+        const movedIndex = targetItems.indexOf(activeIdStr);
+
         const { error } = await apiClient.PATCH("/api/issues/{number}", {
-            params: { path: { number: issue.number.toString() } },
-            body: patchBody,
+            params: { path: { number: String(issue.number) } },
+            body: {
+                ...patchBody,
+                sort_order: movedIndex + 1,
+            } as Record<string, unknown>,
         });
 
         if (error) {
-            if (previous) queryClient.setQueryData(queryKey, previous);
-            toast({
-                ...copy.toasts.genericError,
-                variant: "destructive",
-            });
+            toast({ ...copy.toasts.genericError, variant: "destructive" });
+            debouncedInvalidate();
             return;
         }
 
-        await queryClient.invalidateQueries({ queryKey: ["issues"] });
-        await queryClient.invalidateQueries({
-            queryKey: ["issue", String(issue.number)],
-        });
+        // Renumber target column (skip moved card, already patched above)
+        const targetPatches = targetItems
+            .map((id, i) => ({ id, sortOrder: i + 1 }))
+            .filter(({ id, sortOrder }) => {
+                if (id === activeIdStr) return false;
+                const card = issueMap.get(id);
+                return card && card.sort_order !== sortOrder;
+            })
+            .map(({ id, sortOrder }) =>
+                apiClient.PATCH("/api/issues/{number}", {
+                    params: { path: { number: String(issueMap.get(id)!.number) } },
+                    body: { sort_order: sortOrder },
+                }),
+            );
+
+        // Renumber source column (card was removed by onDragOver)
+        const sourceItems = orderedColumns[activeContainer] ?? [];
+        const sourcePatches = sourceItems
+            .map((id, i) => ({ id, sortOrder: i + 1 }))
+            .filter(({ id, sortOrder }) => {
+                const card = issueMap.get(id);
+                return card && card.sort_order !== sortOrder;
+            })
+            .map(({ id, sortOrder }) =>
+                apiClient.PATCH("/api/issues/{number}", {
+                    params: { path: { number: String(issueMap.get(id)!.number) } },
+                    body: { sort_order: sortOrder },
+                }),
+            );
+
+        await Promise.all([...targetPatches, ...sourcePatches]);
+
+        debouncedInvalidate();
         toast(toastCopy);
     }
 
     return (
         <DndContext
             sensors={sensors}
+            collisionDetection={closestCenter}
             onDragStart={handleDragStart}
-            onDragOver={(event) => {
-                const over = event.over?.id;
-                setOverColumnId(typeof over === "string" ? over : null);
-            }}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             onDragCancel={() => {
                 setOverColumnId(null);
@@ -464,7 +586,7 @@ export function IssuesBoard() {
                             Board
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            {pagination?.total ?? issues.length} issues across{" "}
+                            {pagination?.total ?? apiIssues.length} issues across{" "}
                             {columnDefs.length}{" "}
                             {groupBy === "status"
                                 ? "statuses"
@@ -492,7 +614,7 @@ export function IssuesBoard() {
                             </SelectContent>
                         </Select>
                         <Button asChild variant="outline" size="sm">
-                            <Link to="/issues">
+                            <Link to="/issues/list">
                                 <List className="mr-1 h-3.5 w-3.5" />
                                 List
                             </Link>
@@ -648,9 +770,7 @@ export function IssuesBoard() {
             <DragOverlay dropAnimation={null}>
                 {activeId ? (
                     (() => {
-                        const active = issues.find(
-                            (row) => row.id === activeId,
-                        );
+                        const active = issueMap.get(activeId);
                         if (!active) return null;
                         return (
                             <div className="w-72 rotate-2 opacity-95 shadow-lg">

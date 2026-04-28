@@ -73,6 +73,17 @@ export class CreateIssueEndpoint extends BaseEndpoint {
             .where(eq(issues.organizationId, organizationId));
         const nextNumber = Number(maxRow?.max ?? 0) + 1;
 
+        const [countRow] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(issues)
+            .where(
+                and(
+                    eq(issues.organizationId, organizationId),
+                    eq(issues.status, "new"),
+                ),
+            );
+        const sortOrder = Number(countRow?.count ?? 0) + 1;
+
         const issueId = nanoid();
         await db.insert(issues).values({
             id: issueId,
@@ -85,6 +96,7 @@ export class CreateIssueEndpoint extends BaseEndpoint {
             priority: body.priority ?? "meh",
             authorId: user.id,
             assigneeId: body.assignee_id ?? null,
+            sortOrder,
         });
 
         if (body.attachment_ids.length > 0) {

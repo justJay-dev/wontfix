@@ -237,6 +237,7 @@ export const issues = sqliteTable(
         assigneeId: text("assignee_id").references(() => users.id, {
             onDelete: "set null",
         }),
+        sortOrder: integer("sort_order").notNull().default(0),
         closedAt: integer("closed_at", { mode: "timestamp" }),
         createdAt: integer("created_at", { mode: "timestamp" })
             .notNull()
